@@ -3,10 +3,22 @@ import pandas as pd
 import sys
 import os
 
-# Add the parent directory to Python path
+# Add the current directory to Python path
+sys.path.append(os.path.dirname(__file__))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from data_processing.data_loader import load_ais_data
+try:
+    from data_processing.data_loader import load_ais_data
+    print("✓ Imported from data_processing.data_loader")
+except ImportError as e:
+    print(f"Import error: {e}")
+    # Try alternative import
+    try:
+        from src.data_processing.data_loader import load_ais_data
+        print("✓ Imported from src.data_processing.data_loader")
+    except ImportError as e2:
+        print(f"Alternative import error: {e2}")
+        sys.exit(1)
 
 def diagnose_data():
     print("=== DATA DIAGNOSIS ===")

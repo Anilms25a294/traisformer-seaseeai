@@ -1,0 +1,32 @@
+============================================================
+SeaSeeAI Model Evaluation Report
+============================================================
+Generated: 2025-10-03 23:07:37
+
+*** PERFORMANCE SUMMARY ***
+----------------------------------------
+Best Model: TrAISformer
+Mean Distance Error: 732.75 km
+
+*** DETAILED METRICS ***
+----------------------------------------
+
+LSTM BASELINE            
+  MSE:                      9002.563766
+  MAE:                      74.248045
+  Position MSE:             7501.410954
+  Mean Distance Error:      11959.90 km
+  Median Distance Error:    11961.62 km
+  Std Distance Error:       165.16 km
+  Max Distance Error:       12238.41 km
+  Min Distance Error:       11694.26 km
+
+TRAISFORMER              
+  MSE:                      354.001865
+  MAE:                      12.186630
+  Position MSE:             30.731574
+  Mean Distance Error:      732.75 km
+  Median Distance Error:    876.74 km
+  Std Distance Error:       314.06 km
+  Max Distance Error:       1165.81 km
+  Min Distance Error:       46.59 km

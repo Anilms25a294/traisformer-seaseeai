@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sys
 import os
+from pathlib import Path
 
 # Add src to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -40,7 +41,7 @@ def train_model():
     
     # 4. Create model
     print("3. Initializing LSTM model...")
-    model = SimpleLSTMModel(input_size=4, hidden_size=64, output_size=4, num_layers=2)
+    model = SimpleLSTMModel(input_size=4, hidden_size=64, output_size=4, num_layers=2, prediction_length=5)
     
     # 5. Train model
     print("4. Training model...")
@@ -48,7 +49,7 @@ def train_model():
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     
     train_losses = []
-    num_epochs = 100
+    num_epochs = 50  # Reduced for faster training
     
     for epoch in range(num_epochs):
         model.train()
@@ -68,7 +69,7 @@ def train_model():
         
         train_losses.append(loss.item())
         
-        if epoch % 20 == 0:
+        if epoch % 10 == 0:
             print(f'Epoch {epoch}/{num_epochs}, Loss: {loss.item():.6f}')
     
     # 6. Plot results
@@ -90,8 +91,24 @@ def train_model():
         
         print(f"Test loss on sample: {test_loss.item():.6f}")
     
-    # 8. Save model
-    torch.save(model.state_dict(), 'models/baseline_lstm.pth')
+    # 8. Save model with proper config
+    model_config = {
+        'input_size': 4,
+        'hidden_size': 64,
+        'output_size': 4,
+        'num_layers': 2,
+        'prediction_length': 5
+    }
+    
+    # Create models directory if it doesn't exist
+    model_dir = Path('models')
+    model_dir.mkdir(exist_ok=True)
+    
+    torch.save({
+        'model_state_dict': model.state_dict(),
+        'config': model_config
+    }, model_dir / 'baseline_lstm.pth')
+    
     print("Model saved as 'models/baseline_lstm.pth'")
     
     print("✅ Training completed successfully!")
