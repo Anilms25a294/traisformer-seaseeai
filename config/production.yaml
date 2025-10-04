@@ -1,0 +1,36 @@
+# SeaSeeAI Production Configuration
+
+# Model configuration
+model_checkpoint: "models/best_traisformer.pth"
+sequence_length: 20
+prediction_length: 5
+max_batch_size: 32
+
+# API configuration  
+api_host: "0.0.0.0"
+api_port: 8000
+api_workers: 4
+api_timeout: 300
+
+# Database configuration
+database_url: "sqlite:///seaseeai.db"
+redis_url: "redis://localhost:6379"
+
+# Logging configuration
+log_level: "INFO"
+log_file: "logs/seaseeai.log"
+
+# Monitoring configuration
+enable_metrics: true
+metrics_port: 9090
+health_check_interval: 30
+
+# Performance optimization
+enable_caching: true
+cache_ttl: 300
+model_warmup: true
+
+# Security
+api_key_required: false
+rate_limit_requests: 100
+rate_limit_window: 3600
