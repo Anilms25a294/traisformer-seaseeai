@@ -151,4 +151,6 @@ def run_server():
         httpd.serve_forever()
 
 if __name__ == "__main__":
-    run_server()
+    import os
+    port = int(os.environ.get("PORT", 8000))
+    run_server(host="0.0.0.0", port=port)
