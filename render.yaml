@@ -6,5 +6,6 @@ services:
     startCommand: uvicorn simple_api:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
-        value: 3.13.4
+        value: 3.11.0
+  # Note: Python version is specified via the PYTHON_VERSION env var and runtime.txt
     healthCheckPath: /health
