@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: seaseeai
+    env: python
+    buildCommand: |
+      pip install -r requirements-build.txt
+      pip install -r requirements.txt
+    startCommand: uvicorn simple_api:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.4
+    healthCheckPath: /health
