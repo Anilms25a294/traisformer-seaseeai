@@ -1,4 +1,4 @@
-"""
+API_URL = "http://localhost:8000"API_URL = "http://localhost:8000""""
 Simple SeaSeeAI Dashboard
 """
 
@@ -32,7 +32,11 @@ st.markdown('<div class="main-header">🚢 SeaSeeAI Production Dashboard</div>',
 st.sidebar.title("Navigation")
 page = st.sidebar.selectbox("Select Page", ["Dashboard", "Real-time Prediction", "API Testing"])
 
-API_URL = "http://localhost:8000"
+import streamlit as st
+import os
+
+# Use environment variable for API URL (will work both locally and in cloud)
+API_URL = os.environ.get("API_URL", "http://localhost:8000")
 
 def check_api_health():
     try:
