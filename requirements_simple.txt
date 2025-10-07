@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+streamlit
+plotly
+requests
+pandas==2.1.4
+numpy==1.26.0
