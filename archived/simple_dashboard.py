@@ -1,4 +1,5 @@
-API_URL = "http://localhost:8000"API_URL = "http://localhost:8000""""
+API_URL = "https://traisformer-seaseeai.onrender.com"
+"""
 Simple SeaSeeAI Dashboard
 """
 
