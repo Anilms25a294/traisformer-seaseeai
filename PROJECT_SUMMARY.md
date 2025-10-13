@@ -3,7 +3,7 @@
 ## Project Overview
 SeaSeeAI is a maritime trajectory prediction system that uses AI to predict vessel movements based on AIS (Automatic Identification System) data. The project consists of two main components: a FastAPI-based prediction service and a Streamlit dashboard for visualization.
 
-## Current State (v1.0.0-stable)
+## Current State (v1.1.0-stable)
 This stable version provides core functionality for maritime trajectory prediction with a working API and dashboard interface.
 
 ### Key Components
