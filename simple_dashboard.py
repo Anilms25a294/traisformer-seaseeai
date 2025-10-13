@@ -2,11 +2,12 @@ import streamlit as st
 import requests
 import pandas as pd
 import plotly.graph_objects as go
-from datetime import datetime
-import json
+from datetime import datetime, timedelta
+import numpy as np
+import os
 
 # Configuration
-API_URL = "https://traisformer-seaseeai.onrender.com"  # Live API
+API_URL = "https://traisformer-seaseeai.onrender.com"
 
 st.set_page_config(
     page_title="SeaSeeAI - Maritime Trajectory Prediction",
@@ -14,28 +15,46 @@ st.set_page_config(
     layout="wide"
 )
 
-# Custom CSS
+# Simple maritime regions
+MARITIME_REGIONS = {
+    'gulf_mexico': {
+        'name': 'Gulf of Mexico', 
+        'center': {'lat': 28.0, 'lon': -90.0}, 
+        'zoom': 8
+    },
+    'atlantic_coast': {
+        'name': 'Atlantic Coast',
+        'center': {'lat': 35.0, 'lon': -75.0}, 
+        'zoom': 7
+    },
+    'pacific_coast': {
+        'name': 'Pacific Coast',
+        'center': {'lat': 37.8, 'lon': -122.4},
+        'zoom': 7
+    }
+}
+
+# Vessel type mapping
+VESSEL_TYPES = {
+    30: 'Fishing', 31: 'Fishing', 32: 'Towing', 33: 'Dredging', 34: 'Diving', 35: 'Military',
+    36: 'Sailing', 37: 'Pleasure Craft', 50: 'Pilot Vessel', 51: 'Search and Rescue',
+    52: 'Tug', 53: 'Port Tender', 54: 'Anti-pollution', 55: 'Law Enforcement',
+    57: 'Passenger', 70: 'Cargo', 71: 'Cargo', 72: 'Cargo', 80: 'Tanker', 90: 'Other'
+}
+
 st.markdown("""
 <style>
-    .main-header {
-        font-size: 2.5rem;
-        color: #1f77b4;
-        text-align: center;
-        margin-bottom: 2rem;
+    .main-header { 
+        font-size: 2.5rem; 
+        color: #1f77b4; 
+        text-align: center; 
+        margin-bottom: 2rem; 
     }
-    .success-box {
-        background-color: #d4edda;
-        border: 1px solid #c3e6cb;
-        border-radius: 5px;
-        padding: 15px;
-        margin: 10px 0;
-    }
-    .info-box {
-        background-color: #d1ecf1;
-        border: 1px solid #bee5eb;
-        border-radius: 5px;
-        padding: 15px;
-        margin: 10px 0;
+    .success-box { 
+        background-color: #d4edda; 
+        padding: 15px; 
+        border-radius: 10px; 
+        margin: 10px 0; 
     }
 </style>
 """, unsafe_allow_html=True)
@@ -44,21 +63,16 @@ def check_api_health():
     """Check if the API is healthy"""
     try:
         response = requests.get(f"{API_URL}/health", timeout=10)
-        if response.status_code == 200:
-            return response.json()
-        else:
-            return None
-    except:
+        return response.json() if response.status_code == 200 else None
+    except Exception as e:
+        st.sidebar.error(f"API connection failed: {e}")
         return None
 
 def get_model_info():
     """Get model information"""
     try:
         response = requests.get(f"{API_URL}/model/info", timeout=10)
-        if response.status_code == 200:
-            return response.json()
-        else:
-            return None
+        return response.json() if response.status_code == 200 else None
     except:
         return None
 
@@ -73,211 +87,359 @@ def make_prediction(observations, horizon):
         if response.status_code == 200:
             return response.json()
         else:
+            st.error(f"API returned status {response.status_code}")
             return None
     except Exception as e:
         st.error(f"Prediction error: {e}")
         return None
 
+def load_real_ais_data():
+    """Load AIS data with simple error handling"""
+    try:
+        data_path = "AIS_2024_12_311.csv"
+        if not os.path.exists(data_path):
+            st.sidebar.warning("AIS data file not found")
+            return None
+            
+        st.sidebar.info("Loading AIS data...")
+        
+        # Simple read with minimal processing
+        use_cols = ['MMSI', 'LAT', 'LON', 'SOG', 'COG', 'VesselName', 'VesselType']
+        df = pd.read_csv(data_path, usecols=use_cols, nrows=1000, low_memory=False)
+        
+        # Basic cleaning
+        df = df.dropna(subset=['LAT', 'LON'])
+        df = df[(df['LAT'].between(20, 50)) & (df['LON'].between(-130, -60))]
+        
+        # Add vessel type names
+        df['VesselTypeName'] = df['VesselType'].map(VESSEL_TYPES).fillna('Unknown')
+        
+        st.sidebar.success(f"Loaded {len(df)} positions")
+        return df
+        
+    except Exception as e:
+        st.sidebar.error(f"Data loading error: {str(e)}")
+        return None
+
+def generate_simple_track(base_lat, base_lon, base_sog=10.0, base_cog=45.0, num_points=12):
+    """Generate maritime tracks that stay in water"""
+    
+    # Define maritime bounds for Gulf of Mexico
+    maritime_bounds = {
+        'min_lat': 25.0, 'max_lat': 30.5,
+        'min_lon': -97.0, 'max_lon': -88.0
+    }
+    
+    tracks = []
+    
+    # Start from a known maritime position in Gulf of Mexico
+    if not (maritime_bounds['min_lat'] <= base_lat <= maritime_bounds['max_lat'] and 
+            maritime_bounds['min_lon'] <= base_lon <= maritime_bounds['max_lon']):
+        # If starting position is not in Gulf, use a default maritime position
+        base_lat, base_lon = 28.5, -90.5  # Central Gulf of Mexico
+    
+    for i in range(num_points):
+        # Generate realistic maritime movement
+        lat_variation = np.random.uniform(-0.02, 0.02)
+        lon_variation = np.random.uniform(-0.02, 0.02)
+        
+        new_lat = base_lat + (i * 0.01) + lat_variation
+        new_lon = base_lon + (i * 0.01) + lon_variation
+        
+        # Ensure positions stay within maritime bounds
+        new_lat = np.clip(new_lat, maritime_bounds['min_lat'], maritime_bounds['max_lat'])
+        new_lon = np.clip(new_lon, maritime_bounds['min_lon'], maritime_bounds['max_lon'])
+        
+        # Add realistic speed variations
+        sog_variation = np.random.uniform(-2.0, 2.0)
+        new_sog = max(0.5, base_sog + sog_variation)
+        
+        tracks.append({
+            'latitude': new_lat,
+            'longitude': new_lon,
+            'sog': new_sog,
+            'cog': base_cog,
+            'timestamp': (datetime.now() - timedelta(minutes=(num_points - i) * 10)).isoformat()
+        })
+    
+    return tracks
+
+def create_simple_map(historical_data, predicted_data=None, region='gulf_mexico'):
+    """Create a simple, reliable map without complex features"""
+    
+    if not historical_data:
+        st.warning("No data available for map")
+        return go.Figure()
+    
+    # Get map configuration
+    map_config = MARITIME_REGIONS.get(region, MARITIME_REGIONS['gulf_mexico'])
+    
+    fig = go.Figure()
+    
+    # Historical track (always show)
+    if historical_data:
+        historical_lats = [obs['latitude'] for obs in historical_data]
+        historical_lons = [obs['longitude'] for obs in historical_data]
+        
+        fig.add_trace(go.Scattermapbox(
+            lat=historical_lats,
+            lon=historical_lons,
+            mode='lines+markers',
+            name='Historical Track',
+            line=dict(color='blue', width=4),
+            marker=dict(size=8, color='blue'),
+            hovertemplate='<b>Historical</b><br>Lat: %{lat:.4f}<br>Lon: %{lon:.4f}<extra></extra>'
+        ))
+    
+    # Predicted track
+    if predicted_data:
+        predicted_lats = [pred['latitude'] for pred in predicted_data]
+        predicted_lons = [pred['longitude'] for pred in predicted_data]
+        
+        fig.add_trace(go.Scattermapbox(
+            lat=predicted_lats,
+            lon=predicted_lons,
+            mode='lines+markers',
+            name='Predicted Track',
+            line=dict(color='red', width=4),
+            marker=dict(size=8, color='red', symbol='diamond'),
+            hovertemplate='<b>Predicted</b><br>Lat: %{lat:.4f}<br>Lon: %{lon:.4f}<extra></extra>'
+        ))
+    
+    # Use last point as center if available
+    if historical_data:
+        center_lat = historical_data[-1]['latitude']
+        center_lon = historical_data[-1]['longitude']
+    else:
+        # Force Gulf of Mexico center for all tracks
+        center_lat, center_lon = 28.5, -90.5  # Central Gulf of Mexico
+    
+    fig.update_layout(
+        mapbox=dict(
+            style="open-street-map",
+            zoom=map_config['zoom'],
+            center=dict(lat=center_lat, lon=center_lon)
+        ),
+        height=500,
+        margin={"r": 0, "t": 0, "l": 0, "b": 0},
+        showlegend=True
+    )
+    
+    return fig
+
 def main():
     st.markdown('<div class="main-header">🚢 SeaSeeAI - Maritime Trajectory Prediction</div>', unsafe_allow_html=True)
     
-    # Sidebar
+    # Initialize session state for data persistence
+    if 'observations' not in st.session_state:
+        st.session_state.observations = []
+    if 'predictions' not in st.session_state:
+        st.session_state.predictions = None
+    if 'last_result' not in st.session_state:
+        st.session_state.last_result = None
+    
+    # Sidebar - Simplified
     st.sidebar.title("Configuration")
     
     # API Health Check
-    with st.sidebar:
-        st.subheader("API Status")
+    if st.sidebar.button("Check API Status"):
         health_data = check_api_health()
         if health_data:
-            st.success(f"✅ API Healthy")
-            st.info(f"Uptime: {health_data.get('uptime', 0):.0f}s")
+            st.sidebar.success("✅ API Healthy")
+            st.sidebar.info(f"Uptime: {health_data.get('uptime', 0):.0f}s")
         else:
-            st.error("❌ API Unavailable")
-            return
+            st.sidebar.error("❌ API Unavailable")
     
-    # Model Information
-    model_info = get_model_info()
-    if model_info:
-        with st.sidebar:
-            st.subheader("Model Info")
-            st.write(f"Type: {model_info.get('model_type', 'N/A')}")
-            st.write(f"Loaded: {model_info.get('loaded', False)}")
-            st.write(f"Prediction Length: {model_info.get('prediction_length', 'N/A')}")
+    # Load data once
+    if 'ais_data' not in st.session_state:
+        st.session_state.ais_data = load_real_ais_data()
     
-    # Main content
+    # Main content - Two columns
     col1, col2 = st.columns([1, 1])
     
     with col1:
-        st.subheader("📊 Prediction Configuration")
+        st.subheader("📊 Setup")
         
-        # Prediction horizon
-        horizon = st.slider("Prediction Horizon (steps)", 1, 10, 5)
+        # Simple controls
+        horizon = st.slider("Prediction Steps", 1, 10, 5)
         
-        # Data source selection
-        data_source = st.radio("Data Source", 
-                              ["Sample Data", "Manual Input"])
+        data_source = st.radio("Choose Data Source:", 
+                              ["Manual Input", "Real AIS Data", "Sample Data"])
         
-        if data_source == "Sample Data":
-            st.info("Using built-in sample AIS data")
-            try:
-                df = pd.read_csv("./data/raw/sample_ais_data.csv")
-                vessel_data = df[df['mmsi'] == 100000001].head(12)
+        observations = []
+        
+        if data_source == "Real AIS Data" and st.session_state.ais_data is not None:
+            st.success("Using Real AIS Data")
+            
+            # Simple vessel selection
+            vessels = st.session_state.ais_data['MMSI'].unique()[:20]
+            selected_mmsi = st.selectbox("Select Vessel", vessels)
+            
+            if selected_mmsi:
+                vessel_data = st.session_state.ais_data[
+                    st.session_state.ais_data['MMSI'] == selected_mmsi
+                ].iloc[0]
                 
-                observations = []
-                for _, row in vessel_data.iterrows():
+                vessel_name = vessel_data['VesselName'] if pd.notna(vessel_data['VesselName']) else "Unknown"
+                vessel_type = vessel_data['VesselTypeName']
+                
+                st.info(f"**{vessel_name}** ({vessel_type})")
+                st.info(f"Position: {vessel_data['LAT']:.4f}°N, {vessel_data['LON']:.4f}°W")
+                
+                # Generate simple track
+                simple_track = generate_simple_track(
+                    vessel_data['LAT'],
+                    vessel_data['LON'],
+                    vessel_data['SOG'] if pd.notna(vessel_data['SOG']) else 10.0,
+                    vessel_data['COG'] if pd.notna(vessel_data['COG']) else 45.0
+                )
+                
+                # Convert to observations
+                for point in simple_track:
                     observations.append({
-                        'mmsi': int(row['mmsi']),
-                        'timestamp': str(row['timestamp']),
-                        'latitude': float(row['latitude']),
-                        'longitude': float(row['longitude']),
-                        'sog': float(row['sog']),
-                        'cog': float(row['cog'])
+                        'mmsi': int(selected_mmsi),
+                        'timestamp': point['timestamp'],
+                        'latitude': point['latitude'],
+                        'longitude': point['longitude'],
+                        'sog': point['sog'],
+                        'cog': point['cog']
                     })
                 
-                st.success(f"Loaded {len(observations)} observations from vessel 100000001")
+                st.success(f"✅ Ready with {len(observations)} points")
                 
-                # Show the loaded data
-                with st.expander("View Loaded Data"):
-                    st.dataframe(vessel_data[['timestamp', 'latitude', 'longitude', 'sog', 'cog']])
-                
-            except Exception as e:
-                st.error(f"Error loading sample data: {e}")
-                return
-                
-        else:  # Manual Input
-            st.info("Enter vessel observation data manually")
-            num_obs = st.number_input("Number of observations", 10, 20, 12)
-            observations = []
+        elif data_source == "Sample Data":
+            st.success("Using Sample Data")
             
-            # Create a simple form for manual input
-            base_lat = st.number_input("Base Latitude", value=40.8980, format="%.6f")
-            base_lon = st.number_input("Base Longitude", value=-74.6890, format="%.6f")
-            base_sog = st.number_input("Speed (SOG)", value=10.0)
-            base_cog = st.number_input("Course (COG)", value=45.0)
+            # Simple sample track in Gulf of Mexico
+            sample_track = generate_simple_track(29.74423, -93.86838, 12.0, 45.0)
             
-            for i in range(num_obs):
-                obs = {
+            for point in sample_track:
+                observations.append({
                     'mmsi': 100000001,
-                    'timestamp': (datetime.now()).isoformat(),
-                    'latitude': base_lat + (i * 0.001),
-                    'longitude': base_lon + (i * 0.001),
-                    'sog': base_sog,
-                    'cog': base_cog
-                }
-                observations.append(obs)
+                    'timestamp': point['timestamp'],
+                    'latitude': point['latitude'],
+                    'longitude': point['longitude'],
+                    'sog': point['sog'],
+                    'cog': point['cog']
+                })
             
-            st.success(f"Created {len(observations)} synthetic observations")
+            st.success(f"✅ Created {len(observations)} sample points")
+            
+        else:  # Manual Input
+            st.success("Manual Input")
+            
+            # Simple manual input
+            base_lat = st.number_input("Latitude", value=29.74423, format="%.5f")
+            base_lon = st.number_input("Longitude", value=-93.86838, format="%.5f")
+            base_sog = st.number_input("Speed (knots)", value=12.0)
+            base_cog = st.number_input("Course (degrees)", value=45.0)
+            
+            num_points = st.slider("Track Points", 5, 15, 12)
+            
+            manual_track = generate_simple_track(base_lat, base_lon, base_sog, base_cog, num_points)
+            
+            for point in manual_track:
+                observations.append({
+                    'mmsi': 100000001,
+                    'timestamp': point['timestamp'],
+                    'latitude': point['latitude'],
+                    'longitude': point['longitude'],
+                    'sog': point['sog'],
+                    'cog': point['cog']
+                })
+            
+            st.success(f"✅ Created {len(observations)} manual points")
+        
+        # Store observations in session state
+        st.session_state.observations = observations
+        
+        # Prediction button
+        if st.button("🚀 Generate Predictions", type="primary", use_container_width=True):
+            if observations:
+                with st.spinner("Making predictions..."):
+                    result = make_prediction(observations, horizon)
+                    st.session_state.last_result = result
+            else:
+                st.error("Please create observations first")
     
     with col2:
-        st.subheader("🎯 Prediction Results")
+        st.subheader("🎯 Results")
         
-        if st.button("🚀 Generate Predictions", type="primary"):
-            with st.spinner("Generating trajectory predictions..."):
-                result = make_prediction(observations, horizon)
+        # Show results if available
+        if st.session_state.last_result:
+            result = st.session_state.last_result
+            
+            st.success("✅ Predictions Generated!")
+            
+            # Simple metrics
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Confidence", f"{result.get('confidence', 0):.2f}")
+            with col2:
+                st.metric("Time", f"{result.get('processing_time', 0):.3f}s")
+            with col3:
+                predictions = result.get('predictions', [])
+                st.metric("Predictions", len(predictions))
+            
+            # Show predictions table
+            if predictions:
+                st.subheader("📈 Predicted Positions")
+                pred_df = pd.DataFrame(predictions)
+                st.dataframe(pred_df[['step', 'latitude', 'longitude', 'sog', 'cog']])
                 
-                if result:
-                    st.success("✅ Predictions Generated Successfully!")
+                # Show map
+                st.subheader("🗺️ Trajectory Map")
+                
+                # Determine region based on last observation
+                last_obs = st.session_state.observations[-1]
+                region = 'gulf_mexico'  # Default
+                if 30.0 <= last_obs['latitude'] <= 45.0 and -80.0 <= last_obs['longitude'] <= -70.0:
+                    region = 'atlantic_coast'
+                elif 32.0 <= last_obs['latitude'] <= 48.0 and -125.0 <= last_obs['longitude'] <= -117.0:
+                    region = 'pacific_coast'
+                
+                # Create and display map
+                fig = create_simple_map(st.session_state.observations, predictions, region)
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Simple analysis
+                st.subheader("📊 Analysis")
+                col1, col2 = st.columns(2)
+                with col1:
+                    start_lat = st.session_state.observations[0]['latitude']
+                    start_lon = st.session_state.observations[0]['longitude']
+                    end_lat = predictions[-1]['latitude'] if predictions else start_lat
+                    end_lon = predictions[-1]['longitude'] if predictions else start_lon
                     
-                    # Display results
-                    col_metric1, col_metric2, col_metric3 = st.columns(3)
-                    with col_metric1:
-                        st.metric("Confidence", f"{result.get('confidence', 0):.2f}")
-                    with col_metric2:
-                        st.metric("Processing Time", f"{result.get('processing_time', 0):.2f}s")
-                    with col_metric3:
-                        st.metric("Predictions", len(result.get('predictions', [])))
-                    
-                    # Show predictions table
-                    predictions = result.get('predictions', [])
+                    st.metric("Lat Change", f"{(end_lat - start_lat):.4f}°")
+                    st.metric("Lon Change", f"{(end_lon - start_lon):.4f}°")
+                
+                with col2:
                     if predictions:
-                        pred_df = pd.DataFrame(predictions)
-                        st.subheader("📈 Predicted Positions")
-                        st.dataframe(pred_df[['step', 'latitude', 'longitude', 'sog', 'cog']])
+                        avg_sog = np.mean([p['sog'] for p in predictions])
+                        avg_cog = np.mean([p['cog'] for p in predictions])
+                    else:
+                        avg_sog = np.mean([o['sog'] for o in st.session_state.observations])
+                        avg_cog = np.mean([o['cog'] for o in st.session_state.observations])
                     
-                    # Create visualization
-                    st.subheader("🗺️ Trajectory Map")
-                    
-                    # Extract coordinates
-                    historical_lats = [obs['latitude'] for obs in observations]
-                    historical_lons = [obs['longitude'] for obs in observations]
-                    predicted_lats = [pred['latitude'] for pred in predictions]
-                    predicted_lons = [pred['longitude'] for pred in predictions]
-                    
-                    # Create map - FIXED: Using Scattermap instead of Scattermapbox
-                    fig = go.Figure()
-                    
-                    # Historical track - using solid line
-                    fig.add_trace(go.Scattermap(
-                        lat=historical_lats,
-                        lon=historical_lons,
-                        mode='lines+markers',
-                        name='Historical Track',
-                        line=dict(color='blue', width=4),  # Removed 'dash' property
-                        marker=dict(size=8, color='blue')
-                    ))
-                    
-                    # Predicted track - using different color but solid line
-                    if predicted_lats:
-                        fig.add_trace(go.Scattermap(
-                            lat=predicted_lats,
-                            lon=predicted_lons,
-                            mode='lines+markers',
-                            name='Predicted Track',
-                            line=dict(color='red', width=4),  # Removed 'dash' property
-                            marker=dict(size=8, color='red', symbol='diamond')
-                        ))
-                    
-                    fig.update_layout(
-                        mapbox=dict(
-                            style="open-street-map",
-                            zoom=10,
-                            center=dict(lat=historical_lats[-1], lon=historical_lons[-1])
-                        ),
-                        height=500,
-                        margin={"r":0,"t":0,"l":0,"b":0},
-                        legend=dict(
-                            yanchor="top",
-                            y=0.99,
-                            xanchor="left",
-                            x=0.01
-                        )
-                    )
-                    
-                    st.plotly_chart(fig, use_container_width=True)
-                    
-                    # Additional analysis
-                    st.markdown("<br>", unsafe_allow_html=True)  # Add vertical spacing
-                    st.divider()  # Add a visual separator
-                    st.markdown("<h3>📊 Movement Analysis</h3>", unsafe_allow_html=True)
-                    if len(predictions) > 0:
-                        start_lat = observations[-1]['latitude']
-                        start_lon = observations[-1]['longitude']
-                        end_lat = predictions[-1]['latitude']
-                        end_lon = predictions[-1]['longitude']
-                        
-                        col_analysis1, col_analysis2 = st.columns(2)
-                        with col_analysis1:
-                            st.metric("Latitude Change", f"{(end_lat - start_lat):.4f}°")
-                            st.metric("Longitude Change", f"{(end_lon - start_lon):.4f}°")
-                        with col_analysis2:
-                            avg_sog = sum(pred['sog'] for pred in predictions) / len(predictions)
-                            avg_cog = sum(pred['cog'] for pred in predictions) / len(predictions)
-                            st.metric("Average Speed", f"{avg_sog:.1f} knots")
-                            st.metric("Average Course", f"{avg_cog:.1f}°")
-                    
-                else:
-                    st.error("❌ Failed to generate predictions")
-
-    # Footer
-    st.markdown("---")
-    st.markdown("### 📍 Live API Endpoint")
-    st.code(f"{API_URL}")
-    st.markdown("""
-    **Available Endpoints:**
-    - `GET /health` - API health check
-    - `GET /model/info` - Model information  
-    - `POST /predict` - Make trajectory predictions
-    """)
+                    st.metric("Avg Speed", f"{avg_sog:.1f} kn")
+                    st.metric("Avg Course", f"{avg_cog:.1f}°")
+        else:
+            st.info("Configure settings and generate predictions to see results")
+    
+    # Data overview at bottom
+    if st.session_state.ais_data is not None:
+        st.markdown("---")
+        st.subheader("📈 Data Overview")
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Vessels", len(st.session_state.ais_data['MMSI'].unique()))
+        with col2:
+            st.metric("Data Points", len(st.session_state.ais_data))
+        with col3:
+            moving = len(st.session_state.ais_data[st.session_state.ais_data['SOG'] > 1.0])
+            st.metric("Moving Vessels", moving)
 
 if __name__ == "__main__":
     main()
