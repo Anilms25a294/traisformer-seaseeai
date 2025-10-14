@@ -97,7 +97,7 @@ def make_prediction(observations, horizon):
 def load_real_ais_data():
     """Load AIS data with simple error handling"""
     try:
-        data_path = "AIS_2024_12_311.csv"
+        data_path = "AIS_data_sampled.csv"
         if not os.path.exists(data_path):
             st.sidebar.warning("AIS data file not found")
             return None
