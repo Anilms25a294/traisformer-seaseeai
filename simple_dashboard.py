@@ -8,6 +8,7 @@ import os
 
 # Configuration
 API_URL = "https://traisformer-seaseeai.onrender.com"
+#API_URL = "http://localhost:8001" 
 
 st.set_page_config(
     page_title="SeaSeeAI - Maritime Trajectory Prediction",
