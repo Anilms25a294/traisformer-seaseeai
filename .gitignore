@@ -1,11 +1,15 @@
-# Data files
-data/raw/
-data/processed/
-*.csv
+# --- IMPORTANT DATA FILE RULES ---
+# Ignore the original, large CSV files that exceed GitHub's limit
+AIS_2024_12_311.csv
+processed_ais_data.csv
+data/
+
+# By NOT ignoring *.csv here, our smaller AIS_data_sampled.csv will be included.
 *.parquet
 *.h5
 *.pkl
 
+# --- Standard Python / IDE / OS ignores ---
 # Python
 __pycache__/
 *.pyc
