@@ -4,7 +4,7 @@
 SeaSeeAI is a maritime trajectory prediction system that uses AI to predict vessel movements based on AIS (Automatic Identification System) data. The project consists of two main components: a FastAPI-based prediction service and a Streamlit dashboard for visualization.
 
 ## Current State (v1.1.0-stable)
-This stable version provides core functionality for maritime trajectory prediction with a working API and dashboard interface.
+This stable version provides core functionality for maritime trajectory prediction with a working API and dashboard interface. The project has been cleaned up and organized (as of October 15, 2025) with test files, old documentation, and visualization results moved to the `archived` directory for reference.
 
 ### Key Components
 
@@ -72,16 +72,34 @@ This stable version provides core functionality for maritime trajectory predicti
 traisformer-seaseeai/
 ├── simple_api.py           # Main API service
 ├── simple_dashboard.py     # Interactive dashboard
-├── requirements.txt        # Python dependencies
-├── Dockerfile             # Container configuration
-├── docker-compose.yml     # Docker compose setup
-├── tests/                 # Test suites
-│   └── production/        # Production tests
+├── requirements/           # Dependency configurations
+│   ├── requirements.txt         # Full dependencies
+│   ├── requirements-minimal.txt # Minimal setup
+│   └── requirements-build.txt   # Build requirements
+├── config/                # Configuration files
+│   └── production.yaml    # Production settings
+├── src/                  # Source code
+│   ├── models/           # Model implementations
+│   ├── api/             # API implementations
+│   ├── data_processing/ # Data processors
+│   └── evaluation/      # Model evaluation
 ├── models/               # Model files
-├── data/                # Data directory
-│   ├── processed/       # Processed datasets
-│   └── raw/            # Raw AIS data
-└── scripts/            # Utility scripts
+│   └── best_traisformer.pth  # Production model
+├── data/                 # Data directory
+│   ├── processed/        # Processed datasets
+│   └── raw/             # Raw AIS data
+├── docs/                 # Documentation
+├── tests/               # Test suites
+│   └── production/      # Production tests
+├── notebooks/           # Jupyter notebooks
+├── scripts/             # Utility scripts
+├── monitoring/          # Monitoring configs
+├── logs/               # Application logs
+├── archived/           # Archived files
+├── Dockerfile          # Container configuration
+├── docker-compose.yml  # Docker compose setup
+├── render.yaml         # Render deployment config
+└── *.md               # Documentation files
 ```
 
 ## Technical Details

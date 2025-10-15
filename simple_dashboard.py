@@ -222,8 +222,15 @@ def create_simple_map(historical_data, predicted_data=None, region='gulf_mexico'
             center=dict(lat=center_lat, lon=center_lon)
         ),
         height=500,
-        margin={"r": 0, "t": 0, "l": 0, "b": 0},
-        showlegend=True
+        margin={"r": 0, "t": 60, "l": 0, "b": 0},
+        showlegend=True,
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=0.01,
+            xanchor='left',
+            x=0.01
+        )
     )
     
     return fig
@@ -401,7 +408,11 @@ def main():
                 
                 # Create and display map
                 fig = create_simple_map(st.session_state.observations, predictions, region)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(
+                    fig,
+                    use_container_width=True,
+                    config={"displayModeBar": False, "displaylogo": False}
+                )
                 
                 # Simple analysis
                 st.subheader("📊 Analysis")
